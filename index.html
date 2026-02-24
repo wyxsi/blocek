@@ -86,43 +86,65 @@
         }
 
         function extractItems(text) {
-            // Normalize text - remove excessive whitespace
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             const seen = new Set();
+            let currentName = null;
             
-            console.log('All lines:', lines.slice(0, 30));
-            
-            for (let i = 0; i < lines.length - 1; i++) {
-                const currentLine = lines[i];
-                const nextLine = lines[i + 1];
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
                 
-                if (!currentLine || currentLine.includes('Položky') || currentLine.includes('SPOLU') || currentLine.includes('%') || currentLine.includes('€')) continue;
-                if (!nextLine || nextLine.includes('*') || nextLine.includes('ks')) continue;
+                // Skip headers and footers
+                if (line.includes('Položky') || line.includes('SPOLU') || line.includes('Kaufland') || 
+                    line.includes('Číslo dokladu') || line.includes('IČO') || line.includes('UID') || 
+                    line.includes('OKP') || line.includes('DPH') || line.includes('€')) continue;
                 
-                // Pattern: "X.X% X.XX€"
-                let match = nextLine.match(/^(\d+\.\d+)%\s*(\d+\.\d+)€$/);
-                if (match) {
-                    const price = parseFloat(match[2]);
-                    const key = currentLine + '|' + price;
-                    if (price > 0 && !seen.has(key)) {
-                        seen.add(key);
-                        items.push({ name: currentLine, price: price });
-                        assigned[items.length - 1] = 'none';
-                        console.log('Found:', currentLine, price);
+                // Skip lines with ks * (quantity lines)
+                if (line.includes('ks') || line.includes('*')) continue;
+                
+                // Skip discount lines (negative)
+                if (line.startsWith('-')) continue;
+                
+                // This might be a name or a price line
+                // Look ahead for a price
+                if (!currentName) {
+                    // Could be a product name
+                    if (!line.includes('%') && /^[A-Za-zÀ-ž].*/.test(line)) {
+                        currentName = line;
                     }
-                    continue;
-                }
-                
-                // Pattern: "X.XX€" (no DPH)
-                match = nextLine.match(/^(\d+\.\d+)€$/);
-                if (match) {
-                    const price = parseFloat(match[1]);
-                    const key = currentLine + '|' + price;
-                    if (price > 0 && !seen.has(key)) {
-                        seen.add(key);
-                        items.push({ name: currentLine, price: price });
-                        assigned[items.length - 1] = 'none';
-                        console.log('Found (simple):', currentLine, price);
+                } else {
+                    // We have a name, look for price
+                    const match = line.match(/^(\d+\.\d+)%?\s*(\d+\.\d+)?€?$/);
+                    if (match) {
+                        let price = null;
+                        if (match[2]) {
+                            price = parseFloat(match[2]);
+                        } else if (match[1].includes('%')) {
+                            // This is just DPH%, look further
+                            continue;
+                        } else {
+                            price = parseFloat(match[1]);
+                        }
+                        
+                        if (price && price > 0) {
+                            const key = currentName + '|' + price;
+                            if (!seen.has(key)) {
+                                seen.add(key);
+                                items.push({ name: currentName, price: price });
+                                assigned[items.length - 1] = 'none';
+                                console.log('Found:', currentName, price);
+                            }
+                        }
+                        currentName = null;
+                    } else if (/^\d+\.\d+%$/.test(line)) {
+                        // Just DPH%, skip but keep name
+                        continue;
+                    } else {
+                        // Not a price, maybe new name
+                        if (!line.includes('%') && /^[A-Za-zÀ-ž].*/.test(line)) {
+                            currentName = line;
+                        } else {
+                            currentName = null;
+                        }
                     }
                 }
             }
