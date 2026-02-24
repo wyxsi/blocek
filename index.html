@@ -140,6 +140,17 @@
             }
             
             console.log('Total items:', items.length);
+            
+            // Extract NA UHRADU total for comparison
+            let pdfTotal = null;
+            const naUhraduMatch = text.match(/NA\s*ÚHRADU\s*EUR?\s*(\d+[.,]?\d*)/i) || text.match(/NA\s*UHRADU\s*EUR?\s*(\d+[.,]?\d*)/i);
+            if (naUhraduMatch) {
+                pdfTotal = parseFloat(naUhraduMatch[1].replace(',', '.'));
+                console.log('NA UHRADU:', pdfTotal);
+                const extractedTotal = items.reduce((sum, item) => sum + item.price, 0);
+                console.log('Extracted total:', extractedTotal);
+                sessionStorage.setItem('pdfTotal', pdfTotal);
+            }
         }
         
         function renderItems() {
@@ -175,6 +186,7 @@
         function calculateTotals() {
             let total1 = 0, total2 = 0;
             const total = items.reduce((sum, item) => sum + item.price, 0);
+            const pdfTotal = sessionStorage.getItem('pdfTotal');
             
             items.forEach((item, i) => {
                 if (assigned[i] === 'person1') total1 += item.price;
@@ -185,7 +197,17 @@
             document.getElementById('results').style.display = 'flex';
             document.getElementById('sum1').textContent = total1.toFixed(2) + ' €';
             document.getElementById('sum2').textContent = total2.toFixed(2) + ' €';
-            document.getElementById('total').textContent = 'Celkom: ' + total.toFixed(2) + ' €';
+            
+            let totalText = 'Celkom: ' + total.toFixed(2) + ' €';
+            if (pdfTotal) {
+                const diff = total - parseFloat(pdfTotal);
+                if (Math.abs(diff) > 0.01) {
+                    totalText += ' (PDF: ' + parseFloat(pdfTotal).toFixed(2) + ' € - rozdiel: ' + diff.toFixed(2) + ' €)';
+                } else {
+                    totalText += ' ✓';
+                }
+            }
+            document.getElementById('total').textContent = totalText;
         }
     </script>
 </body>
