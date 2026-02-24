@@ -88,69 +88,45 @@
         function extractItems(text) {
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             const seen = new Set();
+            const priceWithDPH = /^\d+\.\d+%\s*\d+\.\d+€$/;
+            const priceOnly = /^\d+\.\d+€$/;
             
-            // Format 1: "name DPH% price€" on same line (Action)
-            const linePattern = /^(.+?)\s+(\d+\.\d+)%\s*(\d+\.\d+)€$/;
-            
-            // Format 2: multi-line (Kaufland)
-            let currentName = null;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
+            for (let i = 1; i < lines.length; i++) {
+                const prevLine = lines[i - 1];
+                const currLine = lines[i];
                 
-                // Skip headers and footers
-                if (line.includes('Položky') || line.includes('SPOLU') || line.includes('Kaufland') || 
-                    line.includes('Číslo dokladu') || line.includes('IČO') || line.includes('UID') || 
-                    line.includes('OKP') || line.includes('DPH') || line.includes('€')) continue;
+                let price = null;
                 
-                // Skip quantity lines and discounts
-                if (line.includes('ks') || line.includes('*') || line.startsWith('-')) continue;
-                
-                // Try format 1: name + DPH% + price€ on same line
-                const match = line.match(linePattern);
+                // Check for "X.X% X.XX€" format
+                let match = currLine.match(/^(\d+\.\d+)%\s*(\d+\.\d+)€$/);
                 if (match) {
-                    const name = match[1].trim();
-                    const price = parseFloat(match[3]);
-                    if (price > 0) {
-                        const key = name + '|' + price;
-                        if (!seen.has(key)) {
-                            seen.add(key);
-                            items.push({ name: name, price: price });
-                            assigned[items.length - 1] = 'none';
-                            console.log('Found (single):', name, price);
-                        }
-                    }
-                    continue;
+                    price = parseFloat(match[2]);
                 }
                 
-                // Try format 2: multi-line
-                if (!currentName) {
-                    if (!line.includes('%') && /^[A-Za-zÀ-ž].*/.test(line)) {
-                        currentName = line;
+                // Check for "X.XX€" format (no DPH)
+                if (price === null) {
+                    match = currLine.match(/^(\d+\.\d+)€$/);
+                    if (match) {
+                        price = parseFloat(match[1]);
                     }
-                } else {
-                    const priceMatch = line.match(/^(\d+\.\d+%)?\s*(\d+\.\d+)€?$/);
-                    if (priceMatch && priceMatch[2]) {
-                        const price = parseFloat(priceMatch[2]);
-                        if (price > 0) {
-                            const key = currentName + '|' + price;
-                            if (!seen.has(key)) {
-                                seen.add(key);
-                                items.push({ name: currentName, price: price });
-                                assigned[items.length - 1] = 'none';
-                                console.log('Found (multi):', currentName, price);
-                            }
-                        }
-                        currentName = null;
-                    } else if (/^\d+\.\d+%$/.test(line)) {
-                        continue;
-                    } else {
-                        if (!line.includes('%') && /^[A-Za-zÀ-ž].*/.test(line)) {
-                            currentName = line;
-                        } else {
-                            currentName = null;
-                        }
-                    }
+                }
+                
+                if (price === null || price <= 0) continue;
+                
+                // Skip quantity lines and negative
+                if (prevLine.includes('ks') || prevLine.includes('*') || prevLine.startsWith('-')) continue;
+                
+                // Skip footer lines
+                if (prevLine.includes('SPOLU') || prevLine.includes('NA ÚHRADU') || 
+                    prevLine.includes('DPH') || prevLine.includes('Sadzba')) continue;
+                
+                // This should be a product
+                const key = prevLine + '|' + price;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    items.push({ name: prevLine, price: price });
+                    assigned[items.length - 1] = 'none';
+                    console.log('Found:', prevLine, price);
                 }
             }
             
