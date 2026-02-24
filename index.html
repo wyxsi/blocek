@@ -86,8 +86,19 @@
         }
 
         function extractItems(text) {
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            // First, try to add newlines between recognizable patterns
+            // to fix concatenated text
+            let normalized = text
+                .replace(/(\d+\.\d+%)(\d+\.\d+€)/g, '$1 $2')
+                .replace(/(\d+\.\d+€)/g, '\n$1')
+                .replace(/(\d+,\d+ ks \* \d+\.\d+)/g, '\n$1');
+            
+            const lines = normalized.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             const seen = new Set();
+            
+            console.log('Normalized lines:', lines.slice(0, 20));
+            
+            // Look for price patterns: "X.X% X.XX€" or "X.XX€"
             const priceWithDPH = /^\d+\.\d+%\s*\d+\.\d+€$/;
             const priceOnly = /^\d+\.\d+€$/;
             
@@ -113,14 +124,13 @@
                 
                 if (price === null || price <= 0) continue;
                 
-                // Skip quantity lines and negative
-                if (prevLine.includes('ks') || prevLine.includes('*') || prevLine.startsWith('-')) continue;
+                // Skip quantity lines
+                if (prevLine.includes('ks') || prevLine.includes('*')) continue;
                 
-                // Skip footer lines
+                // Skip footer
                 if (prevLine.includes('SPOLU') || prevLine.includes('NA ÚHRADU') || 
                     prevLine.includes('DPH') || prevLine.includes('Sadzba')) continue;
                 
-                // This should be a product
                 const key = prevLine + '|' + price;
                 if (!seen.has(key)) {
                     seen.add(key);
@@ -128,6 +138,21 @@
                     assigned[items.length - 1] = 'none';
                     console.log('Found:', prevLine, price);
                 }
+            }
+            
+            // If still no items, try alternative approach - find numbers followed by €
+            if (items.length === 0) {
+                console.log('Trying alternative extraction...');
+                const euroPattern = /(\d+\.\d+)€/g;
+                let lastMatch = null;
+                
+                // Find all prices with their positions
+                const allMatches = [];
+                let match;
+                while ((match = euroPattern.exec(text)) !== null) {
+                    allMatches.push({ price: parseFloat(match[1]), index: match.index });
+                }
+                console.log('Euro matches:', allMatches);
             }
             
             console.log('Total items:', items.length);
