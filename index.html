@@ -63,13 +63,24 @@
             
             items = [];
             assigned = {};
+            let allText = '';
             
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
-                const text = textContent.items.map(item => item.str).join('\n');
-                extractItems(text);
+                // Sort by Y position (top to bottom), then X (left to right)
+                const sortedItems = textContent.items.sort((a, b) => {
+                    if (Math.abs(a.transform[5] - b.transform[5]) > 5) {
+                        return b.transform[5] - a.transform[5]; // Y descending
+                    }
+                    return a.transform[4] - b.transform[4]; // X ascending
+                });
+                const text = sortedItems.map(item => item.str).join('\n');
+                allText += text + '\n';
             }
+            
+            console.log('Extracted text:', allText.substring(0, 2000));
+            extractItems(allText);
             
             renderItems();
         }
