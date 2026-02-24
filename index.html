@@ -7,32 +7,85 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
-        h1 { text-align: center; margin-bottom: 20px; }
-        .upload-section { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
-        .item { display: flex; align-items: center; padding: 10px; background: white; margin-bottom: 8px; border-radius: 8px; gap: 10px; }
-        .item-name { flex: 3; font-weight: 500; }
-        .item-price { flex: 1; text-align: right; color: #666; }
-        .item-select { flex: 2; }
-        select { padding: 8px; border-radius: 5px; border: 1px solid #ddd; width: 100%; }
-        .results { display: flex; gap: 20px; margin-top: 20px; }
-        .result-box { flex: 1; background: white; padding: 20px; border-radius: 10px; text-align: center; }
-        .result-box h2 { font-size: 2em; color: #2196F3; }
-        .total { text-align: center; margin-top: 20px; color: #666; }
-        button { background: #4CAF50; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        h1 { text-align: center; margin-bottom: 20px; color: #333; }
+        
+        .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        
+        .upload-section { text-align: center; }
+        .upload-section input[type="file"] { margin-bottom: 15px; }
+        
+        button { background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; margin: 3px; }
         button:hover { background: #45a049; }
+        button.secondary { background: #2196F3; }
+        button.secondary:hover { background: #1976D2; }
+        button.danger { background: #f44336; }
+        button.danger:hover { background: #d32f2f; }
+        button.small { padding: 5px 10px; font-size: 12px; }
+        
+        .toolbar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
+        .toolbar .stats { margin-left: auto; color: #666; font-size: 14px; }
+        
+        .item { display: flex; align-items: center; padding: 12px; background: #fafafa; margin-bottom: 8px; border-radius: 8px; gap: 10px; border: 1px solid #eee; }
+        .item:hover { background: #f0f0f0; }
+        
+        .item-num { color: #999; font-size: 12px; width: 25px; }
+        .item-name { flex: 3; min-width: 150px; }
+        .item-name input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .item-price { width: 100px; }
+        .item-price input { width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; text-align: right; }
+        .item-qty { color: #888; font-size: 12px; width: 50px; }
+        .item-select { width: 130px; }
+        .item-select select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; }
+        .item-delete { width: 40px; }
+        .item-delete button { background: #ff5722; padding: 6px 10px; }
+        
+        .add-form { display: flex; gap: 10px; margin-bottom: 15px; padding: 15px; background: #e3f2fd; border-radius: 8px; }
+        .add-form input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .add-form input.name { flex: 3; }
+        .add-form input.price { width: 100px; }
+        
+        .results { display: flex; gap: 20px; margin-top: 20px; }
+        .result-box { flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px; text-align: center; }
+        .result-box h2 { font-size: 2.5em; margin-top: 10px; }
+        
+        .total { text-align: center; margin-top: 15px; padding: 15px; background: #333; color: white; border-radius: 8px; }
+        .total.match { background: #4CAF50; }
+        .total.mismatch { background: #f44336; }
+        
         .empty { text-align: center; color: #999; padding: 40px; }
+        
+        .discount { color: #e91e63; }
+        .added { background: #e8f5e9; border-color: #4caf50; }
     </style>
 </head>
 <body>
     <h1>🧾 Rozdeľovač bločkov</h1>
     
-    <div class="upload-section">
-        <input type="file" id="fileInput" accept=".pdf" />
-        <button onclick="processPDF()">Extrahovať položky</button>
+    <div class="card">
+        <div class="upload-section">
+            <input type="file" id="fileInput" accept=".pdf" />
+            <br>
+            <button onclick="processPDF()">📄 Extrahovať z PDF</button>
+        </div>
     </div>
 
-    <div id="items"></div>
+    <div class="card" id="itemsCard" style="display:none;">
+        <div class="toolbar">
+            <button class="secondary" onclick="showAddForm()">➕ Pridať položku</button>
+            <button onclick="resetAssignments()">🔄 Reset priradení</button>
+            <span class="stats" id="itemStats"></span>
+        </div>
+        
+        <div class="add-form" id="addForm" style="display:none;">
+            <input type="text" class="name" id="newItemName" placeholder="Názov položky">
+            <input type="number" class="price" id="newItemPrice" placeholder="Cena (€)" step="0.01" min="0">
+            <button onclick="addItem()">Pridať</button>
+            <button class="secondary" onclick="hideAddForm()">Zrušiť</button>
+        </div>
+        
+        <div id="items"></div>
+    </div>
     
     <div class="results" id="results" style="display:none;">
         <div class="result-box">
@@ -52,6 +105,8 @@
         
         let items = [];
         let assigned = {};
+        let pdfTotal = null;
+        let nextId = 1;
 
         async function processPDF() {
             const fileInput = document.getElementById('fileInput');
@@ -63,26 +118,24 @@
             
             items = [];
             assigned = {};
+            pdfTotal = null;
+            nextId = 1;
             let allText = '';
             
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
-                // Sort by Y position (top to bottom), then X (left to right)
                 const sortedItems = textContent.items.sort((a, b) => {
                     if (Math.abs(a.transform[5] - b.transform[5]) > 5) {
-                        return b.transform[5] - a.transform[5]; // Y descending
+                        return b.transform[5] - a.transform[5];
                     }
-                    return a.transform[4] - b.transform[4]; // X ascending
+                    return a.transform[4] - b.transform[4];
                 });
                 const text = sortedItems.map(item => item.str).join('\n');
                 allText += text + '\n';
             }
             
-            console.log('Extracted text:', allText.substring(0, 3000));
-            console.log('Text length:', allText.length);
             extractItems(allText);
-            
             renderItems();
         }
 
@@ -90,14 +143,10 @@
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             const seen = new Set();
             
-            console.log('Lines:', lines.slice(0, 30));
-            
-            // Find lines with "X.XX ks * X.XX" or "X.XX ks * -X.XX" pattern
             const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*([+-]?\d+[.,]?\d*)$/;
             
             for (let i = 0; i < lines.length; i++) {
                 const currLine = lines[i];
-                
                 const match = currLine.match(qtyPattern);
                 if (!match) continue;
                 
@@ -107,21 +156,16 @@
                 
                 if (totalPrice === 0) continue;
                 
-                // Look back for product name
                 let name = null;
                 for (let j = i - 1; j >= 0 && j >= i - 5; j--) {
                     const checkLine = lines[j];
                     
-                    // Skip if contains price or DPH
                     if (checkLine.includes('€') || checkLine.includes('%')) continue;
-                    // Skip quantity lines
                     if (checkLine.includes('ks') || checkLine.includes('*')) continue;
-                    // Skip footer keywords
                     if (checkLine.includes('SPOLU') || checkLine.includes('NA ÚHRADU') || 
                         checkLine.includes('DPH') || checkLine.includes('Sadzba') ||
                         checkLine.includes('Základ') || checkLine.includes('Elektronická') ||
                         checkLine.includes('Položky') || checkLine.includes('Číslo dokladu')) continue;
-                    // Skip short lines
                     if (checkLine.length < 2) continue;
                     
                     name = checkLine;
@@ -133,37 +177,97 @@
                 const key = name + '|' + totalPrice.toFixed(2);
                 if (!seen.has(key)) {
                     seen.add(key);
-                    items.push({ name: name, price: totalPrice, qty: qty });
+                    items.push({ id: nextId++, name: name, price: totalPrice, qty: qty, isManual: false });
                     assigned[items.length - 1] = 'none';
-                    console.log('Found:', name, totalPrice, 'x', qty);
                 }
             }
             
-            console.log('Total items:', items.length);
-            
-            // Extract NA UHRADU total for comparison
-            let pdfTotal = null;
+            // Extract NA UHRADU total
             const naUhraduMatch = text.match(/NA\s*ÚHRADU\s*EUR?\s*(\d+[.,]?\d*)/i) || text.match(/NA\s*UHRADU\s*EUR?\s*(\d+[.,]?\d*)/i);
             if (naUhraduMatch) {
                 pdfTotal = parseFloat(naUhraduMatch[1].replace(',', '.'));
-                console.log('NA UHRADU:', pdfTotal);
-                const extractedTotal = items.reduce((sum, item) => sum + item.price, 0);
-                console.log('Extracted total:', extractedTotal);
-                sessionStorage.setItem('pdfTotal', pdfTotal);
             }
         }
         
-        function renderItems() {
-            const container = document.getElementById('items');
-            if (items.length === 0) {
-                container.innerHTML = '<div class="empty">Nenájdené žiadne položky</div>';
+        function showAddForm() {
+            document.getElementById('addForm').style.display = 'flex';
+            document.getElementById('newItemName').focus();
+        }
+        
+        function hideAddForm() {
+            document.getElementById('addForm').style.display = 'none';
+            document.getElementById('newItemName').value = '';
+            document.getElementById('newItemPrice').value = '';
+        }
+        
+        function addItem() {
+            const name = document.getElementById('newItemName').value.trim();
+            const price = parseFloat(document.getElementById('newItemPrice').value);
+            
+            if (!name || isNaN(price)) {
+                alert('Zadajte názov a cenu');
                 return;
             }
             
+            items.push({ id: nextId++, name: name, price: price, qty: 1, isManual: true });
+            assigned[items.length - 1] = 'none';
+            
+            hideAddForm();
+            renderItems();
+        }
+        
+        function deleteItem(index) {
+            items.splice(index, 1);
+            // Rebuild assigned array
+            const newAssigned = {};
+            items.forEach((_, i) => {
+                newAssigned[i] = assigned[i] || 'none';
+            });
+            assigned = newAssigned;
+            renderItems();
+        }
+        
+        function updateItemName(index, value) {
+            items[index].name = value;
+            calculateTotals();
+        }
+        
+        function updateItemPrice(index, value) {
+            items[index].price = parseFloat(value) || 0;
+            calculateTotals();
+        }
+        
+        function resetAssignments() {
+            assigned = {};
+            items.forEach((_, i) => assigned[i] = 'none');
+            renderItems();
+        }
+
+        function renderItems() {
+            const container = document.getElementById('items');
+            const itemsCard = document.getElementById('itemsCard');
+            
+            if (items.length === 0) {
+                itemsCard.style.display = 'none';
+                document.getElementById('results').style.display = 'none';
+                document.getElementById('total').style.display = 'none';
+                return;
+            }
+            
+            itemsCard.style.display = 'block';
+            document.getElementById('results').style.display = 'flex';
+            document.getElementById('total').style.display = 'block';
+            
             container.innerHTML = items.map((item, i) => `
-                <div class="item">
-                    <div class="item-name">${item.qty > 1 ? '(' + item.qty + ') ' : ''}${item.name}</div>
-                    <div class="item-price">${item.price.toFixed(2)} €</div>
+                <div class="item ${item.isManual ? 'added' : ''}">
+                    <div class="item-num">${i + 1}</div>
+                    <div class="item-name">
+                        <input type="text" value="${item.name}" onchange="updateItemName(${i}, this.value)" title="Upraviť názov">
+                    </div>
+                    <div class="item-price">
+                        <input type="number" value="${item.price.toFixed(2)}" step="0.01" onchange="updateItemPrice(${i}, this.value)" title="Upraviť cenu">
+                    </div>
+                    <div class="item-qty">${item.qty > 1 ? '×' + item.qty : ''}</div>
                     <div class="item-select">
                         <select onchange="assign(${i}, this.value)">
                             <option value="none" ${assigned[i] === 'none' ? 'selected' : ''}>❌</option>
@@ -172,9 +276,13 @@
                             <option value="split" ${assigned[i] === 'split' ? 'selected' : ''}>½ Oba</option>
                         </select>
                     </div>
+                    <div class="item-delete">
+                        <button class="danger small" onclick="deleteItem(${i})" title="Vymazať">✕</button>
+                    </div>
                 </div>
             `).join('');
             
+            document.getElementById('itemStats').textContent = `Položiek: ${items.length}`;
             calculateTotals();
         }
 
@@ -186,7 +294,6 @@
         function calculateTotals() {
             let total1 = 0, total2 = 0;
             const total = items.reduce((sum, item) => sum + item.price, 0);
-            const pdfTotal = sessionStorage.getItem('pdfTotal');
             
             items.forEach((item, i) => {
                 if (assigned[i] === 'person1') total1 += item.price;
@@ -194,20 +301,26 @@
                 else if (assigned[i] === 'split') { total1 += item.price / 2; total2 += item.price / 2; }
             });
             
-            document.getElementById('results').style.display = 'flex';
             document.getElementById('sum1').textContent = total1.toFixed(2) + ' €';
             document.getElementById('sum2').textContent = total2.toFixed(2) + ' €';
             
+            const totalEl = document.getElementById('total');
             let totalText = 'Celkom: ' + total.toFixed(2) + ' €';
+            
             if (pdfTotal) {
-                const diff = total - parseFloat(pdfTotal);
+                const diff = total - pdfTotal;
                 if (Math.abs(diff) > 0.01) {
-                    totalText += ' (PDF: ' + parseFloat(pdfTotal).toFixed(2) + ' € - rozdiel: ' + diff.toFixed(2) + ' €)';
+                    totalEl.className = 'total mismatch';
+                    totalText += ' (PDF: ' + pdfTotal.toFixed(2) + ' € | Rozdiel: ' + diff.toFixed(2) + ' €)';
                 } else {
-                    totalText += ' ✓';
+                    totalEl.className = 'total match';
+                    totalText += ' ✓ Súhlasí s PDF';
                 }
+            } else {
+                totalEl.className = 'total';
             }
-            document.getElementById('total').textContent = totalText;
+            
+            totalEl.textContent = totalText;
         }
     </script>
 </body>
