@@ -99,10 +99,10 @@
             console.log('Normalized lines:', lines.slice(0, 30));
             
             // Look for lines that end with € (with possible space)
-            const pricePattern = /^\s*\d+\.\d+\s*€$/;
-            
             for (let i = 0; i < lines.length; i++) {
                 const currLine = lines[i];
+                const prevLine = i > 0 ? lines[i - 1] : '';
+                const prevPrevLine = i > 1 ? lines[i - 2] : '';
                 
                 // Check if this line contains a price with €
                 let match = currLine.match(/(\d+\.\d+)\s*€$/);
@@ -110,6 +110,21 @@
                 
                 const price = parseFloat(match[1]);
                 if (price <= 0) continue;
+                
+                // Skip if this looks like a discount (check previous lines for discount keywords)
+                if (prevLine && (prevLine.toLowerCase().includes('kúp') || 
+                    prevLine.toLowerCase().includes('zľav') ||
+                    prevLine.toLowerCase().includes('akcia') ||
+                    prevLine.toLowerCase().includes('zľava'))) {
+                    console.log('Skipping discount:', prevLine, price);
+                    continue;
+                }
+                if (prevPrevLine && (prevPrevLine.toLowerCase().includes('kúp') || 
+                    prevPrevLine.toLowerCase().includes('zľav') ||
+                    prevPrevLine.toLowerCase().includes('akcia'))) {
+                    console.log('Skipping discount (prevprev):', prevPrevLine, price);
+                    continue;
+                }
                 
                 // Look back for product name (skip quantity lines and DPH lines)
                 let name = null;
@@ -120,6 +135,10 @@
                     if (checkLine.includes('ks') || checkLine.includes('*')) continue;
                     // Skip DPH lines
                     if (checkLine.includes('%') && !checkLine.includes('€')) continue;
+                    // Skip discount keywords
+                    if (checkLine.toLowerCase().includes('kúp') || 
+                        checkLine.toLowerCase().includes('zľav') ||
+                        checkLine.toLowerCase().includes('akcia')) continue;
                     // Skip empty/short lines
                     if (checkLine.length < 3) continue;
                     // Skip footer
