@@ -87,61 +87,42 @@
         }
 
         function extractItems(text) {
-            let normalized = text
-                .replace(/(\d+\.\d+%)(\d+\.\d+€)/g, '$1\n$2')
-                .replace(/(\d+€)/g, '\n$1')
-                .replace(/(\d+%)(\s*)(\d+\.\d+€)/g, '$1\n$3');
-            
-            const lines = normalized.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             const seen = new Set();
             
-            console.log('Normalized lines:', lines.slice(0, 30));
+            console.log('Lines:', lines.slice(0, 30));
+            
+            // Find lines with "X.XX ks * X.XX" pattern
+            const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*(\d+[.,]?\d*)$/;
             
             for (let i = 0; i < lines.length; i++) {
                 const currLine = lines[i];
-                const prevLine = i > 0 ? lines[i - 1] : '';
-                const prevPrevLine = i > 1 ? lines[i - 2] : '';
                 
-                let match = currLine.match(/(\d+\.\d+)\s*€$/);
+                const match = currLine.match(qtyPattern);
                 if (!match) continue;
                 
-                let price = parseFloat(match[1]);
-                if (price <= 0) continue;
+                const qty = parseFloat(match[1].replace(',', '.'));
+                const unitPrice = parseFloat(match[2].replace(',', '.'));
+                const totalPrice = qty * unitPrice;
                 
-                // Check for discount
-                let isDiscount = false;
-                if (prevLine && (prevLine.toLowerCase().includes('kúp') || 
-                    prevLine.toLowerCase().includes('zľav') ||
-                    prevLine.toLowerCase().includes('akcia') ||
-                    prevLine.toLowerCase().includes('zľava'))) {
-                    isDiscount = true;
-                }
-                if (prevPrevLine && (prevPrevLine.toLowerCase().includes('kúp') || 
-                    prevPrevLine.toLowerCase().includes('zľav') ||
-                    prevPrevLine.toLowerCase().includes('akcia'))) {
-                    isDiscount = true;
-                }
-                
-                // If discount, make price negative
-                if (isDiscount) {
-                    price = -price;
-                    console.log('Found discount:', prevLine || prevPrevLine, price);
-                }
+                if (totalPrice <= 0) continue;
                 
                 // Look back for product name
                 let name = null;
-                for (let j = i - 1; j >= 0 && j >= i - 4; j--) {
+                for (let j = i - 1; j >= 0 && j >= i - 5; j--) {
                     const checkLine = lines[j];
                     
+                    // Skip if contains price or DPH
+                    if (checkLine.includes('€') || checkLine.includes('%')) continue;
+                    // Skip quantity lines
                     if (checkLine.includes('ks') || checkLine.includes('*')) continue;
-                    if (checkLine.includes('%') && !checkLine.includes('€')) continue;
-                    if (checkLine.toLowerCase().includes('kúp') || 
-                        checkLine.toLowerCase().includes('zľav') ||
-                        checkLine.toLowerCase().includes('akcia')) continue;
-                    if (checkLine.length < 3) continue;
+                    // Skip footer keywords
                     if (checkLine.includes('SPOLU') || checkLine.includes('NA ÚHRADU') || 
                         checkLine.includes('DPH') || checkLine.includes('Sadzba') ||
-                        checkLine.includes('Základ') || checkLine.includes('Elektronická')) continue;
+                        checkLine.includes('Základ') || checkLine.includes('Elektronická') ||
+                        checkLine.includes('Položky') || checkLine.includes('Číslo dokladu')) continue;
+                    // Skip short lines
+                    if (checkLine.length < 2) continue;
                     
                     name = checkLine;
                     break;
@@ -149,12 +130,12 @@
                 
                 if (!name) continue;
                 
-                const key = name + '|' + price;
+                const key = name + '|' + totalPrice.toFixed(2);
                 if (!seen.has(key)) {
                     seen.add(key);
-                    items.push({ name: name, price: price, isDiscount: isDiscount });
+                    items.push({ name: name, price: totalPrice, qty: qty });
                     assigned[items.length - 1] = 'none';
-                    console.log('Found:', name, price);
+                    console.log('Found:', name, totalPrice, 'x', qty);
                 }
             }
             
@@ -170,8 +151,8 @@
             
             container.innerHTML = items.map((item, i) => `
                 <div class="item">
-                    <div class="item-name" ${item.isDiscount ? 'style="color:red"' : ''}>${item.isDiscount ? '💰 ' : ''}${item.name}</div>
-                    <div class="item-price" ${item.isDiscount ? 'style="color:red"' : ''}>${item.price.toFixed(2)} €</div>
+                    <div class="item-name">${item.qty > 1 ? '(' + item.qty + ') ' : ''}${item.name}</div>
+                    <div class="item-price">${item.price.toFixed(2)} €</div>
                     <div class="item-select">
                         <select onchange="assign(${i}, this.value)">
                             <option value="none" ${assigned[i] === 'none' ? 'selected' : ''}>❌</option>
