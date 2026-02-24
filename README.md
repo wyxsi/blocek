@@ -1,27 +1,36 @@
-# 🧾 Rozdeľovač bločkov
+# Rozdelovac blockov
 
-Aplikácia na rozdelenie nákupu z bločku medzi 2 ľudí.
+Aplikacia na rozdelenie nakupu z blocku medzi 2 ludi.
 
-## Použitie
+## Pouzitie
 
-### JavaScript verzia (index.html)
-1. Otvor `index.html` v prehliadači
-2. Nahraj PDF bločku
-3. Prirad každú položku:
-   - 👤 Osoba 1
-   - 👤 Osoba 2
-   - ½ Oba (rozdeliť na polovicu)
-   - ❌ (vylúčiť)
-4. Zobrazia sa 2 sumy
+### Webova verzia (JavaScript)
+1. Otvor https://wyxsi.github.io/blocek v prehliadaci
+2. Nahraj PDF blocku
+3. Polozky sa automaticky extrahuju
+4. Prirad kazdu polozku:
+   - Osoba 1
+   - Osoba 2
+   - Oba (rozdelit na polovicu)
+   - Vylucit
+5. Zobrazia sa 2 sumy
 
-### Python verzia (split_bill.py)
+### Lokalne spustenie
+Stiahni index.html a otvor v prehliadaci.
+
+### Python verzia
 ```bash
 pip install streamlit pdfplumber
 streamlit run split_bill.py
 ```
 
+## Podporovane obchody
+
+- Kaufland
+- Action
+- Ine obchody s PDF blockmi
+
 ## Hosting
 
-- **Streamlit Cloud**: Pripoj GitHub repo na streamlit.io/cloud
-- **Vlastný server**: Spusti Python verziu na VPS
-- **GitHub Pages**: JavaScript verzia funguje priamo v prehliadači
+- **GitHub Pages**: Automaticky na https://wyxsi.github.io/blocek
+- **Streamlit Cloud**: Pripoj repo na streamlit.io/cloud
