@@ -76,19 +76,39 @@
 
         function extractItems(text) {
             const lines = text.split('\n');
+            const seen = new Set();
+            
             for (let i = 0; i < lines.length - 1; i++) {
                 const currentLine = lines[i].trim();
                 const nextLine = lines[i + 1].trim();
                 
+                // Pattern: name + "X.X% X.XX€"
                 const match = nextLine.match(/^(\d+\.\d+)%\s*(\d+\.\d+)€$/);
-                if (match && currentLine && !currentLine.includes('%') && !nextLine.includes('ks')) {
+                if (match && currentLine && !currentLine.includes('%') && !nextLine.includes('ks') && !nextLine.includes('-')) {
                     const price = parseFloat(match[2]);
-                    if (price > 0) {
+                    const key = currentLine + '|' + price;
+                    if (price > 0 && !seen.has(key)) {
+                        seen.add(key);
+                        items.push({ name: currentLine, price: price });
+                        assigned[items.length - 1] = 'none';
+                    }
+                }
+                
+                // Pattern: just price without DPH% (like "2.34€")
+                const simpleMatch = nextLine.match(/^(\d+\.\d+)€$/);
+                if (simpleMatch && currentLine && !currentLine.includes('%') && !nextLine.includes('ks') && !nextLine.includes('*')) {
+                    const price = parseFloat(simpleMatch[1]);
+                    const key = currentLine + '|' + price;
+                    if (price > 0 && !seen.has(key)) {
+                        seen.add(key);
                         items.push({ name: currentLine, price: price });
                         assigned[items.length - 1] = 'none';
                     }
                 }
             }
+            
+            // Debug: show what was extracted
+            console.log('Extracted items:', items);
         }
 
         function renderItems() {
