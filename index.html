@@ -92,8 +92,8 @@
             
             console.log('Lines:', lines.slice(0, 30));
             
-            // Find lines with "X.XX ks * X.XX" pattern
-            const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*(\d+[.,]?\d*)$/;
+            // Find lines with "X.XX ks * X.XX" or "X.XX ks * -X.XX" pattern
+            const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*([+-]?\d+[.,]?\d*)$/;
             
             for (let i = 0; i < lines.length; i++) {
                 const currLine = lines[i];
@@ -105,7 +105,7 @@
                 const unitPrice = parseFloat(match[2].replace(',', '.'));
                 const totalPrice = qty * unitPrice;
                 
-                if (totalPrice <= 0) continue;
+                if (totalPrice === 0) continue;
                 
                 // Look back for product name
                 let name = null;
