@@ -156,12 +156,13 @@
                 if (totalPrice === 0) continue;
                 
                 let name = null;
-                for (let j = i - 1; j >= 0 && j >= i - 5; j--) {
+                // Look for product name - usually 1-2 lines before the quantity line
+                for (let j = i - 1; j >= 0 && j >= i - 3; j--) {
                     const checkLine = lines[j];
                     
-                    if (checkLine.includes('€') || checkLine.includes('%')) continue;
+                    // Skip if it contains quantity pattern
                     if (checkLine.includes('ks') || checkLine.includes('*')) continue;
-                    // Skip header/footer lines
+                    // Skip footer/header
                     if (checkLine.includes('SPOLU') || checkLine.includes('NA ÚHRADU') || 
                         checkLine.includes('DPH') || checkLine.includes('Sadzba') ||
                         checkLine.includes('Základ') || checkLine.includes('Elektronická') ||
