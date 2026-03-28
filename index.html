@@ -141,7 +141,6 @@
 
         function extractItems(text) {
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            const seen = new Set();
             
             const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*([+-]?\d+[.,]?\d*)$/;
             
@@ -174,12 +173,8 @@
                 
                 if (!name) continue;
                 
-                const key = name + '|' + totalPrice.toFixed(2);
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    items.push({ id: nextId++, name: name, price: totalPrice, qty: qty, isManual: false });
-                    assigned[items.length - 1] = 'none';
-                }
+                items.push({ id: nextId++, name: name, price: totalPrice, qty: qty, isManual: false });
+                assigned[items.length - 1] = 'none';
             }
             
             // Extract NA UHRADU total
