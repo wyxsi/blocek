@@ -5,7 +5,7 @@ Aplikácia na rozdelenie nákupu z bločku medzi 2 ľudí.
 ## Použitie
 
 1. Stiahni `index.html` a otvor v prehliadači
-2. Exportuj PDF bločku z [ebločkov.sk](https://www.eblkov.sk)
+2. Exportuj PDF bločku z [eblocky.sk](https://www.eblocky.sk)
 3. Nahraj PDF bločku
 4. Položky sa automaticky extrahujú
 5. Uprav / pridaj položky podľa potreby
@@ -26,4 +26,4 @@ Aplikácia na rozdelenie nákupu z bločku medzi 2 ľudí.
 
 ## Poznámka
 
-PDF bločky exportuj z portálu [ebločkov.sk](https://www.eblokov.sk) - oficiálny register elektronických bločkov.
+PDF bločky exportuj z portálu [eblocky.sk](https://www.eblocky.sk) - oficiálny register elektronických bločkov.
