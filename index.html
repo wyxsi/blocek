@@ -161,10 +161,17 @@
                     
                     if (checkLine.includes('€') || checkLine.includes('%')) continue;
                     if (checkLine.includes('ks') || checkLine.includes('*')) continue;
+                    // Skip header/footer lines
                     if (checkLine.includes('SPOLU') || checkLine.includes('NA ÚHRADU') || 
                         checkLine.includes('DPH') || checkLine.includes('Sadzba') ||
                         checkLine.includes('Základ') || checkLine.includes('Elektronická') ||
-                        checkLine.includes('Položky') || checkLine.includes('Číslo dokladu')) continue;
+                        checkLine.includes('Položky') || checkLine.includes('Číslo dokladu') ||
+                        checkLine.includes('Dátum') || checkLine.includes('Predajné') ||
+                        checkLine.includes('IČO') || checkLine.includes('DIČ') ||
+                        checkLine.includes('IČDPH') || checkLine.includes('KP:') ||
+                        checkLine.includes('UID:') || checkLine.includes('OKP:') ||
+                        checkLine.includes('OVERTE') || checkLine.includes('Kaufland') ||
+                        checkLine.includes('Action') || checkLine.includes('Lidl')) continue;
                     if (checkLine.length < 2) continue;
                     
                     name = checkLine;
