@@ -142,7 +142,21 @@
         function extractItems(text) {
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
+            // Pattern to match quantity line: "X.XX ks * X.XX"
             const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*([+-]?\d+[.,]?\d*)$/;
+            
+            // Skip these header/footer lines
+            const skipKeywords = ['SPOLU', 'NA ÚHRADU', 'NAÚHRADU', 'DPH', 'Sadzba', 'Základ', 
+                'Elektronická', 'Položky', 'Číslo dokladu', 'Dátum', 'Predajné',
+                'IČO', 'DIČ', 'IČDPH', 'KP:', 'UID:', 'OKP:', 'OVERTE', 'Kaufland', 'Action', 'Lidl',
+                'Slovenská', 'Bratislava', 'Žilina', 's.r.o.'];
+            
+            function shouldSkip(line) {
+                return skipKeywords.some(kw => line.includes(kw)) || 
+                       line.includes('€') || 
+                       /^\d+\.\d+%$/.test(line) ||
+                       line.length < 2;
+            }
             
             for (let i = 0; i < lines.length; i++) {
                 const currLine = lines[i];
@@ -155,28 +169,19 @@
                 
                 if (totalPrice === 0) continue;
                 
+                // Product name is the line immediately before quantity line
                 let name = null;
-                // Look for product name - usually 1-2 lines before the quantity line
-                for (let j = i - 1; j >= 0 && j >= i - 3; j--) {
-                    const checkLine = lines[j];
-                    
-                    // Skip if it contains quantity pattern
-                    if (checkLine.includes('ks') || checkLine.includes('*')) continue;
-                    // Skip footer/header
-                    if (checkLine.includes('SPOLU') || checkLine.includes('NA ÚHRADU') || 
-                        checkLine.includes('DPH') || checkLine.includes('Sadzba') ||
-                        checkLine.includes('Základ') || checkLine.includes('Elektronická') ||
-                        checkLine.includes('Položky') || checkLine.includes('Číslo dokladu') ||
-                        checkLine.includes('Dátum') || checkLine.includes('Predajné') ||
-                        checkLine.includes('IČO') || checkLine.includes('DIČ') ||
-                        checkLine.includes('IČDPH') || checkLine.includes('KP:') ||
-                        checkLine.includes('UID:') || checkLine.includes('OKP:') ||
-                        checkLine.includes('OVERTE') || checkLine.includes('Kaufland') ||
-                        checkLine.includes('Action') || checkLine.includes('Lidl')) continue;
-                    if (checkLine.length < 2) continue;
-                    
-                    name = checkLine;
-                    break;
+                if (i > 0) {
+                    const prevLine = lines[i - 1];
+                    if (!shouldSkip(prevLine)) {
+                        name = prevLine;
+                    } else if (i > 1) {
+                        // If previous line is skipped, try 2 lines back
+                        const prevPrevLine = lines[i - 2];
+                        if (!shouldSkip(prevPrevLine)) {
+                            name = prevPrevLine;
+                        }
+                    }
                 }
                 
                 if (!name) continue;
