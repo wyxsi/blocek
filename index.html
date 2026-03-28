@@ -142,45 +142,53 @@
         function extractItems(text) {
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
-            // Pattern to match quantity line: "X.XX ks * X.XX"
-            const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*([+-]?\d+[.,]?\d*)$/;
-            
             // Skip these header/footer lines
             const skipKeywords = ['SPOLU', 'NA ÚHRADU', 'NAÚHRADU', 'DPH', 'Sadzba', 'Základ', 
                 'Elektronická', 'Položky', 'Číslo dokladu', 'Dátum', 'Predajné',
-                'IČO', 'DIČ', 'IČDPH', 'KP:', 'UID:', 'OKP:', 'OVERTE', 'Kaufland', 'Action', 'Lidl',
-                'Slovenská', 'Bratislava', 'Žilina', 's.r.o.'];
+                'IČO', 'DIČ', 'IČDPH', 'KP:', 'UID:', 'OKP:', 'OVERTE', 'Kaufland', 'Action', 'Lidl', 'TESCO',
+                'Slovenská', 'Bratislava', 'Žilina', 's.r.o.', '---------------'];
             
             function shouldSkip(line) {
                 return skipKeywords.some(kw => line.includes(kw)) || 
-                       line.includes('€') || 
-                       /^\d+\.\d+%$/.test(line) ||
                        line.length < 2;
             }
             
+            // Find all "X ks * Y" lines and their positions
+            const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*([+-]?\d+[.,]?\d*)$/;
+            const pricePattern = /^(\d+[.,]?\d*)\s*€$/;
+            
             for (let i = 0; i < lines.length; i++) {
-                const currLine = lines[i];
-                const match = currLine.match(qtyPattern);
+                const match = lines[i].match(qtyPattern);
                 if (!match) continue;
                 
                 const qty = parseFloat(match[1].replace(',', '.'));
                 const unitPrice = parseFloat(match[2].replace(',', '.'));
-                const totalPrice = qty * unitPrice;
+                let totalPrice = qty * unitPrice;
+                
+                // Try to get total price from next line (format: "X.XX €")
+                if (i + 1 < lines.length) {
+                    const nextLine = lines[i + 1];
+                    const priceMatch = nextLine.match(/^(\d+[.,]?\d*)\s*€$/);
+                    if (priceMatch) {
+                        totalPrice = parseFloat(priceMatch[1].replace(',', '.'));
+                    }
+                }
                 
                 if (totalPrice === 0) continue;
                 
-                // Product name is the line immediately before quantity line
+                // Find product name - look back 1-2 lines
                 let name = null;
-                if (i > 0) {
-                    const prevLine = lines[i - 1];
-                    if (!shouldSkip(prevLine)) {
-                        name = prevLine;
-                    } else if (i > 1) {
-                        // If previous line is skipped, try 2 lines back
-                        const prevPrevLine = lines[i - 2];
-                        if (!shouldSkip(prevPrevLine)) {
-                            name = prevPrevLine;
-                        }
+                
+                // Check line before quantity
+                if (i > 0 && shouldSkip(lines[i - 1]) === false && !lines[i - 1].includes('ks')) {
+                    name = lines[i - 1];
+                }
+                
+                // If still no name, try 2 lines back
+                if (!name && i > 1) {
+                    const prev2 = lines[i - 2];
+                    if (!shouldSkip(prev2) && !prev2.includes('ks') && !prev2.match(/^\d+[.,]?\d*%\s*/)) {
+                        name = prev2;
                     }
                 }
                 
