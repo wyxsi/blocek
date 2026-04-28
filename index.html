@@ -43,6 +43,14 @@
         .item-delete { width: 40px; }
         .item-delete button { background: #ff5722; padding: 6px 10px; }
         
+        .person-names { display: flex; gap: 15px; margin-bottom: 15px; justify-content: center; }
+        .person-names input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; width: 150px; text-align: center; }
+        .person-names label { font-size: 13px; color: #666; }
+        
+        .custom-ratio { display: none; gap: 5px; align-items: center; margin-top: 5px; font-size: 12px; }
+        .custom-ratio input { width: 50px; padding: 3px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px; text-align: center; }
+        .custom-ratio span { color: #666; }
+        
         .add-form { display: flex; gap: 10px; margin-bottom: 15px; padding: 15px; background: #e3f2fd; border-radius: 8px; }
         .add-form input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .add-form input.name { flex: 3; }
@@ -79,6 +87,19 @@
     <div class="version">v2.0</div>
     
     <div class="card">
+        <div class="person-names">
+            <div>
+                <label>👤 Osoba 1</label><br>
+                <input type="text" id="person1Name" placeholder="Meno" onchange="updatePersonNames()" value="Osoba 1">
+            </div>
+            <div>
+                <label>👤 Osoba 2</label><br>
+                <input type="text" id="person2Name" placeholder="Meno" onchange="updatePersonNames()" value="Osoba 2">
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
         <div class="upload-section">
             <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" />
             <br>
@@ -108,11 +129,11 @@
     
     <div class="results" id="results" style="display:none;">
         <div class="result-box">
-            <h3>👤 Osoba 1</h3>
+            <h3 id="person1Title">👤 Osoba 1</h3>
             <h2 id="sum1">0.00 €</h2>
         </div>
         <div class="result-box">
-            <h3>👤 Osoba 2</h3>
+            <h3 id="person2Title">👤 Osoba 2</h3>
             <h2 id="sum2">0.00 €</h2>
         </div>
     </div>
@@ -412,6 +433,21 @@
             renderItems();
         }
 
+        function updatePersonNames() {
+            const name1 = document.getElementById('person1Name').value || 'Osoba 1';
+            const name2 = document.getElementById('person2Name').value || 'Osoba 2';
+            document.getElementById('person1Title').textContent = '👤 ' + name1;
+            document.getElementById('person2Title').textContent = '👤 ' + name2;
+            
+            // Update selects
+            document.querySelectorAll('[id^="select-"]').forEach(sel => {
+                const idx = sel.id.split('-')[1];
+                const val = sel.value;
+                sel.options[1].text = '👤 ' + name1;
+                sel.options[2].text = '👤 ' + name2;
+            });
+        }
+        
         function renderItems() {
             const container = document.getElementById('items');
             const itemsCard = document.getElementById('itemsCard');
@@ -427,6 +463,9 @@
             document.getElementById('results').style.display = 'flex';
             document.getElementById('total').style.display = 'block';
             
+            const name1 = document.getElementById('person1Name').value || 'Osoba 1';
+            const name2 = document.getElementById('person2Name').value || 'Osoba 2';
+            
             container.innerHTML = items.map((item, i) => `
                 <div class="item ${item.isManual ? 'added' : ''} ${item.isDiscount ? 'discount' : ''}">
                     <div class="item-num">${i + 1}</div>
@@ -438,12 +477,18 @@
                     </div>
                     <div class="item-qty">${item.qty > 1 ? '×' + item.qty : ''}</div>
                     <div class="item-select">
-                        <select onchange="assign(${i}, this.value)">
+                        <select onchange="assign(${i}, this.value)" id="select-${i}">
                             <option value="none" ${assigned[i] === 'none' ? 'selected' : ''}>❌ Nikto</option>
-                            <option value="person1" ${assigned[i] === 'person1' ? 'selected' : ''}>👤 Osoba 1</option>
-                            <option value="person2" ${assigned[i] === 'person2' ? 'selected' : ''}>👤 Osoba 2</option>
-                            <option value="split" ${assigned[i] === 'split' ? 'selected' : ''}>½ Obaja</option>
+                            <option value="person1" ${assigned[i] === 'person1' ? 'selected' : ''}>👤 ${name1}</option>
+                            <option value="person2" ${assigned[i] === 'person2' ? 'selected' : ''}>👤 ${name2}</option>
+                            <option value="split" ${assigned[i] === 'split' ? 'selected' : ''}>½ Obaja 1:1</option>
+                            <option value="custom" ${assigned[i] === 'custom' ? 'selected' : ''}>⚙️ Vlastný pomer</option>
                         </select>
+                        <div class="custom-ratio" id="ratio-${i}" style="${assigned[i] === 'custom' ? 'display:flex;' : 'display:none;'}">
+                            <input type="number" id="ratio1-${i}" value="${item.ratio1 || 1}" min="0" step="0.1" onchange="calculateTotals()">
+                            <span>:</span>
+                            <input type="number" id="ratio2-${i}" value="${item.ratio2 || 1}" min="0" step="0.1" onchange="calculateTotals()">
+                        </div>
                     </div>
                     <div class="item-delete">
                         <button class="danger small" onclick="deleteItem(${i})" title="Vymazať">✕</button>
@@ -457,6 +502,16 @@
 
         function assign(index, value) {
             assigned[index] = value;
+            const ratioDiv = document.getElementById('ratio-' + index);
+            if (value === 'custom') {
+                ratioDiv.style.display = 'flex';
+                const r1 = parseFloat(document.getElementById('ratio1-' + index).value) || 1;
+                const r2 = parseFloat(document.getElementById('ratio2-' + index).value) || 1;
+                items[index].ratio1 = r1;
+                items[index].ratio2 = r2;
+            } else {
+                ratioDiv.style.display = 'none';
+            }
             calculateTotals();
         }
 
@@ -468,6 +523,17 @@
                 if (assigned[i] === 'person1') total1 += item.price;
                 else if (assigned[i] === 'person2') total2 += item.price;
                 else if (assigned[i] === 'split') { total1 += item.price / 2; total2 += item.price / 2; }
+                else if (assigned[i] === 'custom') {
+                    const r1 = parseFloat(document.getElementById('ratio1-' + i).value) || 1;
+                    const r2 = parseFloat(document.getElementById('ratio2-' + i).value) || 1;
+                    const sum = r1 + r2;
+                    if (sum > 0) {
+                        total1 += item.price * (r1 / sum);
+                        total2 += item.price * (r2 / sum);
+                    }
+                    items[i].ratio1 = r1;
+                    items[i].ratio2 = r2;
+                }
             });
             
             document.getElementById('sum1').textContent = total1.toFixed(2) + ' €';

@@ -9,18 +9,22 @@ Aplikácia na rozdelenie nákupu z bločku medzi 2 ľudí.
 3. Nahraj PDF bločku
 4. Položky sa automaticky extrahujú
 5. Uprav / pridaj položky podľa potreby
-6. Prirad každú položku:
+6. Pomenuj osoby (voliteľné)
+7. Prirad každú položku:
    - 👤 Osoba 1
    - 👤 Osoba 2
    - ½ Oba (rozdeliť na polovicu)
+   - ⚙️ Vlastný pomer (napr. 2:1, 3:1, atď.)
    - ❌ (vylúčiť)
-7. Zobrazia sa 2 sumy
+8. Zobrazia sa 2 sumy
 
 ## Funkcie
 
 - 📄 PDF extrakcia položiek
 - ✏️ Úprava názvov a cien
 - ➕ Pridanie / vymazanie položiek
+- 👥 Pomenovanie osôb
+- ⚖️ Vlastný pomer rozdelenia (napr. 2:1)
 - ✓ Porovnanie súčtu s PDF
 - 🏪 Podpora: Kaufland, Tesco, Lidl, Action
 
