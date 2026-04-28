@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rozdeľovač bločkov</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
-        h1 { text-align: center; margin-bottom: 20px; color: #333; }
+        h1 { text-align: center; margin-bottom: 10px; color: #333; }
+        .version { text-align: center; color: #999; font-size: 12px; margin-bottom: 20px; }
         
         .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         
@@ -28,6 +30,7 @@
         
         .item { display: flex; align-items: center; padding: 12px; background: #fafafa; margin-bottom: 8px; border-radius: 8px; gap: 10px; border: 1px solid #eee; }
         .item:hover { background: #f0f0f0; }
+        .item.discount { background: #fce4ec; border-color: #f8bbd0; }
         
         .item-num { color: #999; font-size: 12px; width: 25px; }
         .item-name { flex: 3; min-width: 150px; }
@@ -49,31 +52,39 @@
         .result-box { flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px; text-align: center; }
         .result-box h2 { font-size: 2.5em; margin-top: 10px; }
         
-        .total { text-align: center; margin-top: 15px; padding: 15px; background: #333; color: white; border-radius: 8px; }
+        .total { text-align: center; margin-top: 15px; padding: 15px; background: #333; color: white; border-radius: 8px; font-size: 16px; }
         .total.match { background: #4CAF50; }
         .total.mismatch { background: #f44336; }
         
         .empty { text-align: center; color: #999; padding: 40px; }
+        .added { background: #e8f5e9 !important; border-color: #4caf50 !important; }
         
-        .discount { color: #e91e63; }
-        .added { background: #e8f5e9; border-color: #4caf50; }
+        .status { text-align: center; padding: 10px; margin: 10px 0; border-radius: 6px; }
+        .status.info { background: #e3f2fd; color: #1976d2; }
+        .status.error { background: #ffebee; color: #c62828; }
         
-        .header-links { text-align: center; margin-bottom: 20px; }
+        .header-links { text-align: center; margin-bottom: 10px; }
         .header-links a { color: #2196F3; text-decoration: none; font-size: 14px; }
         .header-links a:hover { text-decoration: underline; }
+        
+        #qrPreview { display: none; text-align: center; margin: 10px 0; }
+        #qrPreview img { max-width: 200px; border: 1px solid #ddd; border-radius: 8px; }
     </style>
 </head>
 <body>
     <div class="header-links">
-        <a href="index.html" download="rozdelovac_blocov.html">⬇️ Stiahnuť aplikáciu</a>
+        <a href="https://github.com/wyxsi/blocek" target="_blank">📦 GitHub</a>
     </div>
     <h1>🧾 Rozdeľovač bločkov</h1>
+    <div class="version">v2.0</div>
     
     <div class="card">
         <div class="upload-section">
-            <input type="file" id="fileInput" accept=".pdf" />
+            <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" />
             <br>
-            <button onclick="processPDF()">📄 Extrahovať z PDF</button>
+            <button onclick="processFile()">📄 Extrahovať položky</button>
+            <div id="status"></div>
+            <div id="qrPreview"></div>
         </div>
     </div>
 
@@ -81,12 +92,13 @@
         <div class="toolbar">
             <button class="secondary" onclick="showAddForm()">➕ Pridať položku</button>
             <button onclick="resetAssignments()">🔄 Reset priradení</button>
+            <button class="danger" onclick="clearAll()">🗑️ Vyčistiť všetko</button>
             <span class="stats" id="itemStats"></span>
         </div>
         
         <div class="add-form" id="addForm" style="display:none;">
             <input type="text" class="name" id="newItemName" placeholder="Názov položky">
-            <input type="number" class="price" id="newItemPrice" placeholder="Cena (€)" step="0.01" min="0">
+            <input type="number" class="price" id="newItemPrice" placeholder="Cena (€)" step="0.01">
             <button onclick="addItem()">Pridať</button>
             <button class="secondary" onclick="hideAddForm()">Zrušiť</button>
         </div>
@@ -105,7 +117,7 @@
         </div>
     </div>
     
-    <div class="total" id="total"></div>
+    <div class="total" id="total" style="display:none;"></div>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -115,18 +127,51 @@
         let pdfTotal = null;
         let nextId = 1;
 
-        async function processPDF() {
+        function setStatus(msg, type = 'info') {
+            const el = document.getElementById('status');
+            if (!msg) { el.innerHTML = ''; return; }
+            el.innerHTML = `<div class="status ${type}">${msg}</div>`;
+        }
+
+        async function processFile() {
             const fileInput = document.getElementById('fileInput');
-            if (!fileInput.files[0]) { alert('Vyberte PDF súbor'); return; }
+            if (!fileInput.files[0]) { 
+                setStatus('❌ Vyberte súbor', 'error'); 
+                return; 
+            }
             
             const file = fileInput.files[0];
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            setStatus('⏳ Spracovávam...');
             
             items = [];
             assigned = {};
             pdfTotal = null;
             nextId = 1;
+            
+            try {
+                if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                    await processPDF(file);
+                } else {
+                    await processImage(file);
+                }
+                
+                if (items.length > 0) {
+                    setStatus(`✅ Nájdených ${items.length} položiek`);
+                } else {
+                    setStatus('⚠️ Nenájdené žiadne položky. Môžeš ich pridať manuálne.', 'error');
+                }
+                
+                renderItems();
+            } catch (e) {
+                setStatus('❌ Chyba: ' + e.message, 'error');
+                console.error(e);
+            }
+        }
+        
+        async function processPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            
             let allText = '';
             
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -142,73 +187,160 @@
                 allText += text + '\n';
             }
             
+            console.log('Extracted text:', allText);
             extractItems(allText);
-            renderItems();
+        }
+        
+        async function processImage(file) {
+            // Scan QR code from image
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            await new Promise(r => img.onload = r);
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            
+            if (code) {
+                setStatus(`✅ QR kód: ${code.data}`);
+                console.log('QR data:', code.data);
+                alert('QR kód detekovaný: ' + code.data + '\n\nAutomatický import z QR kódu ešte nie je podporovaný. Otvor link v prehliadači a skopíruj položky ručne.');
+            } else {
+                throw new Error('QR kód sa nenašiel v obrázku');
+            }
         }
 
         function extractItems(text) {
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const rawLines = text.split('\n').map(l => l.trim());
+            const lines = rawLines.filter(l => l.length > 0);
             
-            // Skip these header/footer lines
-            const skipKeywords = ['SPOLU', 'NA ÚHRADU', 'NAÚHRADU', 'DPH', 'Sadzba', 'Základ', 
-                'Elektronická', 'Položky', 'Číslo dokladu', 'Dátum', 'Predajné',
-                'IČO', 'DIČ', 'IČDPH', 'KP:', 'UID:', 'OKP:', 'OVERTE', 'Kaufland', 'Action', 'Lidl', 'TESCO',
-                'Slovenská', 'Bratislava', 'Žilina', 's.r.o.', '---------------'];
+            // Skip patterns
+            const skipPatterns = [
+                /^SPOLU/i, /^NA\s*Ú?HRADU/i, /^DPH/i, /^Sadzba/i, /^Základ/i,
+                /^Elektronick/i, /^Položky:?$/i, /^Číslo dokladu/i, /^Dátum/i, 
+                /^Predajné/i, /^IČO:/i, /^DIČ:/i, /^IČDPH:/i, /^KP:/i,
+                /^UID:?$/i, /^OKP:?$/i, /^OVERTE/i,
+                /^[-]{5,}$/, /^-$/,
+                /^Kaufland/i, /^Action/i, /^Lidl/i, /^Tesco/i, /^IKEA/i,
+                /^[A-Z0-9]{6,}-[A-Z0-9]{6,}/,  // OKP hash
+                /^O-[A-F0-9]+$/i  // UID hash
+            ];
             
             function shouldSkip(line) {
-                return skipKeywords.some(kw => line.includes(kw)) || 
-                       line.length < 2;
+                if (!line || line.length < 2) return true;
+                return skipPatterns.some(p => p.test(line));
             }
             
-            // Find all "X ks * Y" lines and their positions
-            const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*([+-]?\d+[.,]?\d*)$/;
-            const pricePattern = /^(\d+[.,]?\d*)\s*€$/;
+            // Pattern for quantity line: "X.XX ks * Y.YY" (with optional trailing text)
+            const qtyPattern = /^(\d+[.,]?\d*)\s*ks\s*\*\s*([+-]?\d+[.,]?\d*)/;
+            
+            // Pattern for price-only lines like "23.0%4.47 €" or "2.99 €" or "5.0%7.08 €"
+            const priceEndPattern = /(\d+[.,]\d+)\s*€$/;
             
             for (let i = 0; i < lines.length; i++) {
-                const match = lines[i].match(qtyPattern);
-                if (!match) continue;
+                const qtyMatch = lines[i].match(qtyPattern);
+                if (!qtyMatch) continue;
                 
-                const qty = parseFloat(match[1].replace(',', '.'));
-                const unitPrice = parseFloat(match[2].replace(',', '.'));
+                const qty = parseFloat(qtyMatch[1].replace(',', '.'));
+                const unitPrice = parseFloat(qtyMatch[2].replace(',', '.'));
                 let totalPrice = qty * unitPrice;
                 
-                // Try to get total price from next line (format: "X.XX €")
+                // Check if same line contains total price (e.g. "1.00 ks * 1.49 23.0% 1.49 €")
+                const sameLineTotal = lines[i].match(priceEndPattern);
+                if (sameLineTotal) {
+                    const p = parseFloat(sameLineTotal[1].replace(',', '.'));
+                    // Accept if makes sense (handle negative from unit price)
+                    if (unitPrice < 0 && p > 0) {
+                        totalPrice = -p;
+                    } else {
+                        totalPrice = p * (unitPrice < 0 ? -1 : 1);
+                        // If magnitudes roughly match qty*unitPrice, use it
+                        if (Math.abs(Math.abs(p) - Math.abs(qty * unitPrice)) < 0.05) {
+                            totalPrice = unitPrice < 0 ? -p : p;
+                        } else {
+                            totalPrice = qty * unitPrice;
+                        }
+                    }
+                }
+                
+                // Check next line for total price "X.XX €" or "DPH% X.XX €"
                 if (i + 1 < lines.length) {
                     const nextLine = lines[i + 1];
-                    const priceMatch = nextLine.match(/^(\d+[.,]?\d*)\s*€$/);
-                    if (priceMatch) {
-                        totalPrice = parseFloat(priceMatch[1].replace(',', '.'));
+                    // Format: "5.0%7.08 €" or "7.08 €" or "23.0% 4.47 €"
+                    const nextMatch = nextLine.match(/^(?:\d+[.,]?\d*%)?\s*([+-]?\d+[.,]\d+)\s*€$/);
+                    if (nextMatch) {
+                        totalPrice = parseFloat(nextMatch[1].replace(',', '.'));
                     }
                 }
                 
                 if (totalPrice === 0) continue;
                 
-                // Find product name - look back 1-2 lines
+                // Find name - look back for non-skip, non-qty, non-price line
                 let name = null;
+                let combinedName = [];
                 
-                // Check line before quantity
-                if (i > 0 && shouldSkip(lines[i - 1]) === false && !lines[i - 1].includes('ks')) {
-                    name = lines[i - 1];
+                for (let j = i - 1; j >= 0 && j >= i - 4; j--) {
+                    const line = lines[j];
+                    
+                    // Stop if we hit another quantity line
+                    if (line.match(qtyPattern)) break;
+                    
+                    // Skip price-only lines
+                    if (/^\d+[.,]?\d*%?\s*[+-]?\d+[.,]\d+\s*€?$/.test(line)) continue;
+                    if (/^\d+[.,]\d+\s*€$/.test(line)) continue;
+                    if (/^\d+[.,]\d+%$/.test(line)) continue;
+                    
+                    if (shouldSkip(line)) continue;
+                    
+                    combinedName.unshift(line);
+                    // If line looks like a product name (has letters), it's probably the main name
+                    if (/[a-zA-ZÀ-ž]/.test(line)) {
+                        name = line;
+                        break;
+                    }
                 }
                 
-                // If still no name, try 2 lines back
-                if (!name && i > 1) {
-                    const prev2 = lines[i - 2];
-                    if (!shouldSkip(prev2) && !prev2.includes('ks') && !prev2.match(/^\d+[.,]?\d*%\s*/)) {
-                        name = prev2;
-                    }
+                if (!name && combinedName.length > 0) {
+                    name = combinedName.join(' ');
                 }
                 
                 if (!name) continue;
                 
-                items.push({ id: nextId++, name: name, price: totalPrice, qty: qty, isManual: false });
+                // Clean up name - remove trailing DPH and prices if stuck to it
+                name = name.replace(/\s*\d+\.\d+%\s*[+-]?\d+[.,]\d+\s*€?\s*$/, '').trim();
+                name = name.replace(/\s*\d+[.,]\d+\s*€\s*$/, '').trim();
+                
+                if (!name) continue;
+                
+                items.push({ 
+                    id: nextId++, 
+                    name: name, 
+                    price: totalPrice, 
+                    qty: qty, 
+                    isManual: false,
+                    isDiscount: totalPrice < 0
+                });
                 assigned[items.length - 1] = 'none';
             }
             
             // Extract NA UHRADU total
-            const naUhraduMatch = text.match(/NA\s*ÚHRADU\s*EUR?\s*(\d+[.,]?\d*)/i) || text.match(/NA\s*UHRADU\s*EUR?\s*(\d+[.,]?\d*)/i);
-            if (naUhraduMatch) {
-                pdfTotal = parseFloat(naUhraduMatch[1].replace(',', '.'));
+            const fullText = lines.join('\n');
+            const totalPatterns = [
+                /NA\s*ÚHRADU\s*EUR?\s*\n?\s*(\d+[.,]\d+)/i,
+                /NA\s*UHRADU\s*EUR?\s*\n?\s*(\d+[.,]\d+)/i,
+                /NAÚHRADUEUR?\s*(\d+[.,]\d+)/i,
+            ];
+            for (const pattern of totalPatterns) {
+                const match = fullText.match(pattern);
+                if (match) {
+                    pdfTotal = parseFloat(match[1].replace(',', '.'));
+                    break;
+                }
             }
         }
         
@@ -232,7 +364,14 @@
                 return;
             }
             
-            items.push({ id: nextId++, name: name, price: price, qty: 1, isManual: true });
+            items.push({ 
+                id: nextId++, 
+                name: name, 
+                price: price, 
+                qty: 1, 
+                isManual: true,
+                isDiscount: price < 0
+            });
             assigned[items.length - 1] = 'none';
             
             hideAddForm();
@@ -241,28 +380,35 @@
         
         function deleteItem(index) {
             items.splice(index, 1);
-            // Rebuild assigned array
             const newAssigned = {};
-            items.forEach((_, i) => {
-                newAssigned[i] = assigned[i] || 'none';
-            });
+            items.forEach((_, i) => newAssigned[i] = 'none');
+            // Preserve old assignments by index shift
             assigned = newAssigned;
             renderItems();
         }
         
         function updateItemName(index, value) {
             items[index].name = value;
-            calculateTotals();
         }
         
         function updateItemPrice(index, value) {
             items[index].price = parseFloat(value) || 0;
+            items[index].isDiscount = items[index].price < 0;
             calculateTotals();
         }
         
         function resetAssignments() {
-            assigned = {};
             items.forEach((_, i) => assigned[i] = 'none');
+            renderItems();
+        }
+        
+        function clearAll() {
+            if (!confirm('Naozaj vymazať všetky položky?')) return;
+            items = [];
+            assigned = {};
+            pdfTotal = null;
+            document.getElementById('fileInput').value = '';
+            setStatus('');
             renderItems();
         }
 
@@ -282,21 +428,21 @@
             document.getElementById('total').style.display = 'block';
             
             container.innerHTML = items.map((item, i) => `
-                <div class="item ${item.isManual ? 'added' : ''}">
+                <div class="item ${item.isManual ? 'added' : ''} ${item.isDiscount ? 'discount' : ''}">
                     <div class="item-num">${i + 1}</div>
                     <div class="item-name">
-                        <input type="text" value="${item.name}" onchange="updateItemName(${i}, this.value)" title="Upraviť názov">
+                        <input type="text" value="${item.name.replace(/"/g, '&quot;')}" onchange="updateItemName(${i}, this.value)">
                     </div>
                     <div class="item-price">
-                        <input type="number" value="${item.price.toFixed(2)}" step="0.01" onchange="updateItemPrice(${i}, this.value)" title="Upraviť cenu">
+                        <input type="number" value="${item.price.toFixed(2)}" step="0.01" onchange="updateItemPrice(${i}, this.value)">
                     </div>
                     <div class="item-qty">${item.qty > 1 ? '×' + item.qty : ''}</div>
                     <div class="item-select">
                         <select onchange="assign(${i}, this.value)">
-                            <option value="none" ${assigned[i] === 'none' ? 'selected' : ''}>❌</option>
+                            <option value="none" ${assigned[i] === 'none' ? 'selected' : ''}>❌ Nikto</option>
                             <option value="person1" ${assigned[i] === 'person1' ? 'selected' : ''}>👤 Osoba 1</option>
                             <option value="person2" ${assigned[i] === 'person2' ? 'selected' : ''}>👤 Osoba 2</option>
-                            <option value="split" ${assigned[i] === 'split' ? 'selected' : ''}>½ Oba</option>
+                            <option value="split" ${assigned[i] === 'split' ? 'selected' : ''}>½ Obaja</option>
                         </select>
                     </div>
                     <div class="item-delete">
@@ -330,14 +476,14 @@
             const totalEl = document.getElementById('total');
             let totalText = 'Celkom: ' + total.toFixed(2) + ' €';
             
-            if (pdfTotal) {
+            if (pdfTotal !== null) {
                 const diff = total - pdfTotal;
                 if (Math.abs(diff) > 0.01) {
                     totalEl.className = 'total mismatch';
-                    totalText += ' (PDF: ' + pdfTotal.toFixed(2) + ' € | Rozdiel: ' + diff.toFixed(2) + ' €)';
+                    totalText += ` (PDF: ${pdfTotal.toFixed(2)} € | Rozdiel: ${diff.toFixed(2)} €)`;
                 } else {
                     totalEl.className = 'total match';
-                    totalText += ' ✓ Súhlasí s PDF';
+                    totalText += ` ✓ Súhlasí s PDF (${pdfTotal.toFixed(2)} €)`;
                 }
             } else {
                 totalEl.className = 'total';
